@@ -7,21 +7,43 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Récupération du code
         uses: actions/checkout@v4
 
-      - name: Compilation de l'APK avec Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+      - name: Installation de Python 3.10
+        uses: actions/setup-python@v5
         with:
-          buildozer_version: stable
-          workdir: .
+          python-version: '3.10'
+
+      - name: Installation des dépendances système Android
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev automake
+
+      - name: Installation de Buildozer et Cython
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.36 virtualenv
+
+      - name: Configuration de buildozer.spec
+        run: |
+          rm -f buildozer.spec
+          buildozer init
+          sed -i 's/title = My Application/title = Galerie Photo/g' buildozer.spec
+          sed -i 's/package.name = myapp/package.name = galeriephoto/g' buildozer.spec
+          sed -i 's/requirements = python3,kivy/requirements = python3,kivy,numpy,opencv,pillow/g' buildozer.spec
+          sed -i 's/#android.permissions = INTERNET/android.permissions = CAMERA,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE/g' buildozer.spec
+          sed -i 's/fullscreen = 0/fullscreen = 1/g' buildozer.spec
+
+      - name: Compilation de l'APK Android
+        run: |
+          yes | buildozer -v android debug
 
       - name: Sauvegarde de l'APK généré
         uses: actions/upload-artifact@v4
         with:
           name: GaleriePhoto-APK
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: bin/*.apk
